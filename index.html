@@ -66,18 +66,34 @@ window.addName = function () {
   input.value = "";
 };
 
+// Замени существующую функцию генерации на эту
 window.generateQueue = function () {
-  onValue(namesRef, (snapshot) => {
-    let names = [];
-    snapshot.forEach(child => { names.push(child.val()); });
-    names.sort(() => Math.random() - 0.5);
-    set(queueRef, names);
-  }, { onlyOnce: true });
+  const password = prompt("Введите пароль администратора для генерации очереди:");
+  
+  if (password === "1255") { // Замени 'твой_пароль_тут' на свой секрет
+    onValue(namesRef, (snapshot) => {
+      let names = [];
+      snapshot.forEach(child => { names.push(child.val()); });
+      names.sort(() => Math.random() - 0.5);
+      set(queueRef, names);
+      alert("Очередь успешно перемешана!");
+    }, { onlyOnce: true });
+  } else {
+    alert("Неверный пароль!");
+  }
 };
 
+// Замени существующую функцию очистки на эту
 window.clearAll = function () {
-  if (confirm("Очистить список и очередь?")) {
-    set(ref(db, "rooms/" + room), null);
+  const password = prompt("Введите пароль администратора для полной очистки:");
+  
+  if (password === "1255") { // Используй тот же пароль
+    if (confirm("Вы уверены, что хотите полностью очистить список и очередь?")) {
+      set(ref(db, "rooms/" + room), null);
+      alert("Данные удалены");
+    }
+  } else {
+    alert("Неверный пароль!");
   }
 };
 
