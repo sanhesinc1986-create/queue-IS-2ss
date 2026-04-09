@@ -4,115 +4,46 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Random Queue</title>
-
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f5f7fa;
-    margin: 0;
-    padding: 0;
-}
-
-.container {
-    max-width: 400px;
-    margin: auto;
-    padding: 20px;
-}
-
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-
-h2 {
-    text-align: center;
-}
-
-input {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #ddd;
-    margin-bottom: 10px;
-    font-size: 16px;
-}
-
-button {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 10px;
-    background: #4CAF50;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-}
-
-button:hover {
-    background: #43a047;
-}
-
-.secondary {
-    background: #2196F3;
-    margin-top: 10px;
-}
-
-.secondary:hover {
-    background: #1e88e5;
-}
-
-ul, ol {
-    padding-left: 20px;
-}
-
-li {
-    margin-bottom: 5px;
-}
+    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 0; }
+    .container { max-width: 400px; margin: auto; padding: 20px; }
+    .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2 { text-align: center; }
+    input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 10px; font-size: 16px; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: #4CAF50; color: white; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+    .secondary { background: #2196F3; }
+    .danger { background: #f44336; }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 5px; }
 </style>
 </head>
-
 <body>
-
 <div class="container">
-
     <div class="card">
         <h2>Очередь выступлений</h2>
-
         <input id="nameInput" placeholder="Введите фамилию">
         <button onclick="addName()">Добавить</button>
-
         <button class="secondary" onclick="generateQueue()">Сгенерировать очередь</button>
+        <button class="danger" onclick="clearAll()">Очистить всё</button>
     </div>
-
     <div class="card">
         <h3>Список участников</h3>
         <ul id="list"></ul>
     </div>
-
     <div class="card">
         <h3>Очередь</h3>
         <ol id="queue"></ol>
     </div>
-    <button class="secondary" style="background: #f44336; margin-top: 10px;" onclick="clearAll()">Очистить всё</button>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-window.clearAll = function () {
-  if (confirm("Вы уверены, что хотите очистить список и очередь?")) {
-    set(ref(db, "rooms/" + room), null);
-  }
-};
-
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyC8rN1_LTCCX8kw23iw9xDl9nvnVqOHoes",
   authDomain: "queue-is-2ss.firebaseapp.com",
-  databaseURL: "https://queue-is-2ss-default-rtdb.asia-southeast1.firebasedatabase.app",
+  databaseURL: "https://queue-is-2ss-default-rtdb.asia-southeast1.firebasedatabase.app", 
   projectId: "queue-is-2ss",
   storageBucket: "queue-is-2ss.firebasestorage.app",
   messagingSenderId: "434214903653",
@@ -122,7 +53,6 @@ window.clearAll = function () {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-
 const params = new URLSearchParams(window.location.search);
 const room = params.get("room") || "default";
 
@@ -132,7 +62,6 @@ const queueRef = ref(db, "rooms/" + room + "/queue");
 window.addName = function () {
   const input = document.getElementById("nameInput");
   if (input.value.trim() === "") return;
-
   push(namesRef, input.value.trim());
   input.value = "";
 };
@@ -140,20 +69,21 @@ window.addName = function () {
 window.generateQueue = function () {
   onValue(namesRef, (snapshot) => {
     let names = [];
-    snapshot.forEach(child => {
-      names.push(child.val());
-    });
-
+    snapshot.forEach(child => { names.push(child.val()); });
     names.sort(() => Math.random() - 0.5);
-
     set(queueRef, names);
   }, { onlyOnce: true });
+};
+
+window.clearAll = function () {
+  if (confirm("Очистить список и очередь?")) {
+    set(ref(db, "rooms/" + room), null);
+  }
 };
 
 onValue(namesRef, (snapshot) => {
   const list = document.getElementById("list");
   list.innerHTML = "";
-
   snapshot.forEach(child => {
     const li = document.createElement("li");
     li.textContent = child.val();
@@ -164,7 +94,6 @@ onValue(namesRef, (snapshot) => {
 onValue(queueRef, (snapshot) => {
   const queue = document.getElementById("queue");
   queue.innerHTML = "";
-
   snapshot.forEach(child => {
     const li = document.createElement("li");
     li.textContent = child.val();
@@ -172,6 +101,5 @@ onValue(queueRef, (snapshot) => {
   });
 });
 </script>
-
 </body>
 </html>
