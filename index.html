@@ -61,9 +61,31 @@ const queueRef = ref(db, "rooms/" + room + "/queue");
 
 window.addName = function () {
   const input = document.getElementById("nameInput");
-  if (input.value.trim() === "") return;
-  push(namesRef, input.value.trim());
-  input.value = "";
+  const newName = input.value.trim();
+
+  if (newName === "") return;
+
+  // Очищаем вводимое имя от цифр и лишних знаков для сравнения
+  // Например: "Юрий1" превратится в "юрий"
+  const cleanNewName = newName.toLowerCase().replace(/[^а-яёa-z]/g, "");
+
+  onValue(namesRef, (snapshot) => {
+    let exists = false;
+    
+    snapshot.forEach(child => {
+      const existingName = child.val().toLowerCase().replace(/[^а-яёa-z]/g, "");
+      if (existingName === cleanNewName) {
+        exists = true;
+      }
+    });
+
+    if (exists) {
+      alert("Похоже, этот человек уже есть в списке (проверка по буквам)!");
+    } else {
+      push(namesRef, newName);
+      input.value = "";
+    }
+  }, { onlyOnce: true });
 };
 
 // Замени существующую функцию генерации на эту
