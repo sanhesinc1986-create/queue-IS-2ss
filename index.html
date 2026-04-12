@@ -40,6 +40,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+let userIP = "";
+// Получаем IP пользователя через бесплатный сервис
+fetch('https://api.ipify.org?format=json')
+  .then(response => response.json())
+  .then(data => userIP = data.ip);
+    
 const firebaseConfig = {
   apiKey: "AIzaSyC8rN1_LTCCX8kw23iw9xDl9nvnVqOHoes",
   authDomain: "queue-is-2ss.firebaseapp.com",
@@ -63,26 +69,27 @@ window.addName = function () {
   const input = document.getElementById("nameInput");
   const newName = input.value.trim();
 
-  if (newName === "") return;
-
-  // Очищаем вводимое имя от цифр и лишних знаков для сравнения
-  // Например: "Юрий1" превратится в "юрий"
-  const cleanNewName = newName.toLowerCase().replace(/[^а-яёa-z]/g, "");
+  if (newName === "" || !userIP) return;
 
   onValue(namesRef, (snapshot) => {
-    let exists = false;
+    let nameExists = false;
+    let ipExists = false;
     
     snapshot.forEach(child => {
-      const existingName = child.val().toLowerCase().replace(/[^а-яёa-z]/g, "");
-      if (existingName === cleanNewName) {
-        exists = true;
-      }
+      const data = child.val();
+      // Проверка на дубликат имени
+      if (data.name && data.name.toLowerCase() === newName.toLowerCase()) nameExists = true;
+      // Проверка на дубликат IP
+      if (data.ip === userIP) ipExists = true;
     });
 
-    if (exists) {
-      alert("Похоже, этот человек уже есть в списке (проверка по буквам)!");
+    if (nameExists) {
+      alert("Это имя уже в списке!");
+    } else if (ipExists) {
+      alert("С вашего устройства уже была сделана запись!");
     } else {
-      push(namesRef, newName);
+      // Сохраняем и имя, и IP
+      push(namesRef, { name: newName, ip: userIP });
       input.value = "";
     }
   }, { onlyOnce: true });
@@ -119,12 +126,15 @@ window.clearAll = function () {
   }
 };
 
+// Найди блок onValue(namesRef, ...) и замени на этот:
 onValue(namesRef, (snapshot) => {
   const list = document.getElementById("list");
   list.innerHTML = "";
   snapshot.forEach(child => {
+    const data = child.val();
     const li = document.createElement("li");
-    li.textContent = child.val();
+    // Берем именно поле .name
+    li.textContent = data.name || data; 
     list.appendChild(li);
   });
 });
