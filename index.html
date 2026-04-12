@@ -69,27 +69,38 @@ window.addName = function () {
   const input = document.getElementById("nameInput");
   const newName = input.value.trim();
 
-  if (newName === "" || !userIP) return;
+  if (newName === "") return;
 
+  // 1. Очистка для проверок (убираем всё, кроме букв, и в нижний регистр)
+  const cleanNewName = newName.toLowerCase().replace(/[^а-яёa-z]/g, "");
+
+  // 2. ЖЕСТКИЙ БАН (черный список)
+  const blackList = ["вретиков", "юрий", "юра", "вретик"];
+  const isBanned = blackList.some(banned => cleanNewName.includes(banned));
+
+  if (isBanned) {
+    alert("Доступ заблокирован.");
+    input.value = "";
+    return; 
+  }
+
+  // 3. Проверка на дубликаты в базе (только по буквам)
   onValue(namesRef, (snapshot) => {
-    let nameExists = false;
-    let ipExists = false;
+    let exists = false;
     
     snapshot.forEach(child => {
-      const data = child.val();
-      // Проверка на дубликат имени
-      if (data.name && data.name.toLowerCase() === newName.toLowerCase()) nameExists = true;
-      // Проверка на дубликат IP
-      if (data.ip === userIP) ipExists = true;
+      // Сравниваем очищенные от цифр и знаков версии имен
+      const existingNameClean = child.val().toLowerCase().replace(/[^а-яёa-z]/g, "");
+      if (existingNameClean === cleanNewName) {
+        exists = true;
+      }
     });
 
-    if (nameExists) {
-      alert("Это имя уже в списке!");
-    } else if (ipExists) {
-      alert("С вашего устройства уже была сделана запись!");
+    if (exists) {
+      alert("Этот человек уже записан!");
     } else {
-      // Сохраняем и имя, и IP
-      push(namesRef, { name: newName, ip: userIP });
+      // Если всё ок — добавляем исходное имя, как его ввел пользователь
+      push(namesRef, newName);
       input.value = "";
     }
   }, { onlyOnce: true });
