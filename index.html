@@ -37,151 +37,127 @@
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-let userIP = "";
-// Получаем IP пользователя через бесплатный сервис
-fetch('https://api.ipify.org?format=json')
-  .then(response => response.json())
-  .then(data => userIP = data.ip);
-    
-const firebaseConfig = {
-  apiKey: "AIzaSyC8rN1_LTCCX8kw23iw9xDl9nvnVqOHoes",
-  authDomain: "queue-is-2ss.firebaseapp.com",
-  databaseURL: "https://queue-is-2ss-default-rtdb.asia-southeast1.firebasedatabase.app", 
-  projectId: "queue-is-2ss",
-  storageBucket: "queue-is-2ss.firebasestorage.app",
-  messagingSenderId: "434214903653",
-  appId: "1:434214903653:web:0360c894aa64667bfe0b8c",
-  measurementId: "G-M0MXYBFGD2"
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyC8rN1_LTCCX8kw23iw9xDl9nvnVqOHoes",
+        authDomain: "queue-is-2ss.firebaseapp.com",
+        databaseURL: "https://queue-is-2ss-default-rtdb.asia-southeast1.firebasedatabase.app", 
+        projectId: "queue-is-2ss",
+        storageBucket: "queue-is-2ss.firebasestorage.app",
+        messagingSenderId: "434214903653",
+        appId: "1:434214903653:web:0360c894aa64667bfe0b8c",
+        measurementId: "G-M0MXYBFGD2"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const params = new URLSearchParams(window.location.search);
-const room = params.get("room") || "default";
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get("room") || "default";
 
-const namesRef = ref(db, "rooms/" + room + "/names");
-const queueRef = ref(db, "rooms/" + room + "/queue");
+    const namesRef = ref(db, "rooms/" + room + "/names");
+    const queueRef = ref(db, "rooms/" + room + "/queue");
 
-window.addName = function () {
-  const input = document.getElementById("nameInput");
-  const newName = input.value.trim();
+    const ADMIN_PASS = "1255"; // Единый пароль для всех действий
 
-  if (newName === "") return;
+    // --- 1. ДОБАВЛЕНИЕ С ЗАЩИТОЙ ---
+    window.addName = function () {
+        const input = document.getElementById("nameInput");
+        const newName = input.value.trim();
+        if (newName === "") return;
 
-  // 1. Очистка для проверок (убираем всё, кроме букв, и в нижний регистр)
-  const cleanNewName = newName.toLowerCase().replace(/[^а-яёa-z]/g, "");
+        // Очистка от мусора и хитрых пробелов
+        const cleanName = newName.toLowerCase().replace(/[^а-яё]/g, "");
+        const blackList = ["вретиков", "юрий", "юра", "вретик"];
+        
+        if (blackList.some(banned => cleanName.includes(banned))) {
+            alert("Доступ заблокирован.");
+            input.value = "";
+            return; 
+        }
 
-  // 2. ЖЕСТКИЙ БАН (черный список)
-  const blackList = ["вретиков", "юрий", "юра", "вретик"];
-  const isBanned = blackList.some(banned => cleanNewName.includes(banned));
+        onValue(namesRef, (snapshot) => {
+            let exists = false;
+            snapshot.forEach(child => {
+                const existingClean = child.val().toLowerCase().replace(/[^а-яё]/g, "");
+                if (existingClean === cleanName) exists = true;
+            });
 
-  if (isBanned) {
-    alert("Доступ заблокирован.");
-    input.value = "";
-    return; 
-  }
+            if (exists) {
+                alert("Этот человек уже записан!");
+            } else {
+                push(namesRef, newName);
+                input.value = "";
+            }
+        }, { onlyOnce: true });
+    };
 
-  // 3. Проверка на дубликаты в базе (только по буквам)
-  onValue(namesRef, (snapshot) => {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-  snapshot.forEach(child => {
-    const li = document.createElement("li");
-    li.textContent = child.val();
-    
-    // Добавляем стиль курсора, чтобы было понятно, что можно нажать
-    li.style.cursor = "pointer";
-    li.title = "Нажмите, чтобы удалить (нужен пароль)";
-    
-    // При клике вызываем функцию удаления, передавая ID записи
-    li.onclick = () => deleteName(child.key, child.val());
-    
-    list.appendChild(li);
-  });
-});
+    // --- 2. УДАЛЕНИЕ КОНКРЕТНОЙ СТРОКИ ---
+    window.deleteName = function (nameId, nameValue) {
+        const password = prompt(`Введите пароль для удаления "${nameValue}":`);
+        if (password === ADMIN_PASS) {
+            if (confirm(`Удалить "${nameValue}"?`)) {
+                set(ref(db, "rooms/" + room + "/names/" + nameId), null);
+            }
+        } else if (password !== null) {
+            alert("Неверный пароль!");
+        }
+    };
 
-window.deleteName = function (nameId, nameValue) {
-  const password = prompt(`Введите пароль администратора, чтобы удалить "${nameValue}":`);
-  
-  // Используй тот же пароль, что и для генерации очереди
-  if (password === "1234") { // <--- ЗАМЕНИ 1234 НА СВОЙ ПАРОЛЬ
-    if (confirm(`Вы точно хотите удалить "${nameValue}"?`)) {
-      const itemRef = ref(db, "rooms/" + room + "/names/" + nameId);
-      set(itemRef, null)
-        .then(() => alert("Запись удалена"))
-        .catch((error) => alert("Ошибка удаления: " + error.message));
-    }
-  } else {
-    alert("Неверный пароль!");
-  }
-};
-    
-    if (exists) {
-      alert("Этот человек уже записан!");
-    } else {
-      // Если всё ок — добавляем исходное имя, как его ввел пользователь
-      push(namesRef, newName);
-      input.value = "";
-    }
-  }, { onlyOnce: true };
-};
+    // --- 3. ГЕНЕРАЦИЯ ОЧЕРЕДИ ---
+    window.generateQueue = function () {
+        const password = prompt("Введите пароль администратора:");
+        if (password === ADMIN_PASS) {
+            onValue(namesRef, (snapshot) => {
+                let names = [];
+                snapshot.forEach(child => { names.push(child.val()); });
+                if (names.length === 0) return alert("Список пуст!");
+                names.sort(() => Math.random() - 0.5);
+                set(queueRef, names);
+                alert("Очередь перемешана!");
+            }, { onlyOnce: true });
+        } else if (password !== null) {
+            alert("Неверный пароль!");
+        }
+    };
 
-// Замени существующую функцию генерации на эту
-window.generateQueue = function () {
-  const password = prompt("Введите пароль администратора для генерации очереди:");
-  
-  if (password === "1255") { // Замени 'твой_пароль_тут' на свой секрет
+    // --- 4. ПОЛНАЯ ОЧИСТКА ---
+    window.clearAll = function () {
+        const password = prompt("Пароль для ПОЛНОЙ очистки:");
+        if (password === ADMIN_PASS) {
+            if (confirm("Вы уверены?")) {
+                set(ref(db, "rooms/" + room), null);
+            }
+        } else if (password !== null) {
+            alert("Неверный пароль!");
+        }
+    };
+
+    // --- 5. СИНХРОНИЗАЦИЯ СПИСКА (Кликабельный) ---
     onValue(namesRef, (snapshot) => {
-      let names = [];
-      snapshot.forEach(child => { names.push(child.val()); });
-      names.sort(() => Math.random() - 0.5);
-      set(queueRef, names);
-      alert("Очередь успешно перемешана!");
-    }, { onlyOnce: true });
-  } else {
-    alert("Неверный пароль!");
-  }
-};
+        const list = document.getElementById("list");
+        list.innerHTML = "";
+        snapshot.forEach(child => {
+            const li = document.createElement("li");
+            li.textContent = child.val();
+            li.style.cursor = "pointer";
+            li.title = "Нажми, чтобы удалить";
+            li.onclick = () => deleteName(child.key, child.val());
+            list.appendChild(li);
+        });
+    });
 
-// Замени существующую функцию очистки на эту
-window.clearAll = function () {
-  const password = prompt("Введите пароль администратора для полной очистки:");
-  
-  if (password === "1255") { // Используй тот же пароль
-    if (confirm("Вы уверены, что хотите полностью очистить список и очередь?")) {
-      set(ref(db, "rooms/" + room), null);
-      alert("Данные удалены");
-    }
-  } else {
-    alert("Неверный пароль!");
-  }
-};
-
-// Найди блок onValue(namesRef, ...) и замени на этот:
-onValue(namesRef, (snapshot) => {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-  snapshot.forEach(child => {
-    const data = child.val();
-    const li = document.createElement("li");
-    // Берем именно поле .name
-    li.textContent = data.name || data; 
-    list.appendChild(li);
-  });
-});
-
-onValue(queueRef, (snapshot) => {
-  const queue = document.getElementById("queue");
-  queue.innerHTML = "";
-  snapshot.forEach(child => {
-    const li = document.createElement("li");
-    li.textContent = child.val();
-    queue.appendChild(li);
-  });
-});
+    // --- 6. СИНХРОНИЗАЦИЯ ОЧЕРЕДИ ---
+    onValue(queueRef, (snapshot) => {
+        const queueElement = document.getElementById("queue");
+        queueElement.innerHTML = "";
+        snapshot.forEach(child => {
+            const li = document.createElement("li");
+            li.textContent = child.val();
+            queueElement.appendChild(li);
+        });
+    });
 </script>
 </body>
 </html>
