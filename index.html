@@ -86,16 +86,39 @@ window.addName = function () {
 
   // 3. Проверка на дубликаты в базе (только по буквам)
   onValue(namesRef, (snapshot) => {
-    let exists = false;
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  snapshot.forEach(child => {
+    const li = document.createElement("li");
+    li.textContent = child.val();
     
-    snapshot.forEach(child => {
-      // Сравниваем очищенные от цифр и знаков версии имен
-      const existingNameClean = child.val().toLowerCase().replace(/[^а-яёa-z]/g, "");
-      if (existingNameClean === cleanNewName) {
-        exists = true;
-      }
-    });
+    // Добавляем стиль курсора, чтобы было понятно, что можно нажать
+    li.style.cursor = "pointer";
+    li.title = "Нажмите, чтобы удалить (нужен пароль)";
+    
+    // При клике вызываем функцию удаления, передавая ID записи
+    li.onclick = () => deleteName(child.key, child.val());
+    
+    list.appendChild(li);
+  });
+});
 
+window.deleteName = function (nameId, nameValue) {
+  const password = prompt(`Введите пароль администратора, чтобы удалить "${nameValue}":`);
+  
+  // Используй тот же пароль, что и для генерации очереди
+  if (password === "1234") { // <--- ЗАМЕНИ 1234 НА СВОЙ ПАРОЛЬ
+    if (confirm(`Вы точно хотите удалить "${nameValue}"?`)) {
+      const itemRef = ref(db, "rooms/" + room + "/names/" + nameId);
+      set(itemRef, null)
+        .then(() => alert("Запись удалена"))
+        .catch((error) => alert("Ошибка удаления: " + error.message));
+    }
+  } else {
+    alert("Неверный пароль!");
+  }
+};
+    
     if (exists) {
       alert("Этот человек уже записан!");
     } else {
